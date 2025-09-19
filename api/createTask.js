@@ -8,6 +8,7 @@ export default async function handler(req, res) {
   try {
     const { imageBase64, prompt, duration } = req.body;
 
+    // Kirim ke Runway untuk buat task
     const response = await fetch("https://api.dev.runwayml.com/v1/tasks", {
       method: "POST",
       headers: {
@@ -29,6 +30,7 @@ export default async function handler(req, res) {
 
     if (!data.id) return res.status(500).json({ error: "Gagal buat task" });
 
+    // Balikkan taskId ke browser
     res.status(200).json({ taskId: data.id });
   } catch (err) {
     console.error(err);
