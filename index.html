@@ -5,16 +5,17 @@
 <title>Runway Video Generator</title>
 </head>
 <body>
-  <h2>Upload Foto → Generate Video</h2>
-  <input type="file" id="photo" accept="image/*">
-  <button onclick="generateVideo()">Generate</button>
+<h2>Upload Foto → Generate Video</h2>
 
-  <p id="status"></p>
-  <progress id="progressBar" value="0" max="100" style="width:300px;"></progress>
-  <br/>
-  <video id="result" controls style="max-width:400px; display:none;"></video>
-  <br/>
-  <a id="download" href="#" download="video.mp4" style="display:none;">⬇️ Download Video</a>
+<input type="file" id="photo" accept="image/*">
+<button onclick="generateVideo()">Generate</button>
+
+<p id="status"></p>
+<progress id="progressBar" value="0" max="100" style="width:300px;"></progress>
+<br/>
+<video id="result" controls style="max-width:400px; display:none;"></video>
+<br/>
+<a id="download" href="#" download="video.mp4" style="display:none;">⬇️ Download Video</a>
 
 <script>
 async function generateVideo() {
@@ -26,10 +27,13 @@ async function generateVideo() {
     const base64 = reader.result.split(",")[1];
     const statusEl = document.getElementById("status");
     const progressBar = document.getElementById("progressBar");
+
     statusEl.innerText = "Mengunggah & membuat task...";
+    progressBar.value = 0;
 
     try {
-      const res = await fetch("/api/generate", {
+      // Kirim ke serverless function
+      const res = await fetch("/api/runway", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -39,8 +43,8 @@ async function generateVideo() {
         })
       });
 
-      // Update progress (sementara ini langsung 100% karena polling di server)
       const data = await res.json();
+
       progressBar.value = data.progress;
       statusEl.innerText = "Selesai ✅";
 
