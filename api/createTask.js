@@ -1,0 +1,37 @@
+import fetch from "node-fetch";
+
+export default async function handler(req, res) {
+  if (req.method !== "POST") {
+    return res.status(405).json({ error: "Method not allowed" });
+  }
+
+  try {
+    const { imageBase64, prompt, duration } = req.body;
+
+    const response = await fetch("https://api.dev.runwayml.com/v1/tasks", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${process.env.RUNWAY_API_KEY}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        model: "gen2",
+        input: {
+          mode: "image_to_video",
+          prompt,
+          duration,
+          image: imageBase64
+        }
+      })
+    });
+
+    const data = await response.json();
+
+    if (!data.id) return res.status(500).json({ error: "Gagal buat task" });
+
+    res.status(200).json({ taskId: data.id });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Server error" });
+  }
+}
