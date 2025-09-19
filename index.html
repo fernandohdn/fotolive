@@ -8,6 +8,11 @@
 <h2>Upload Foto → Generate Video</h2>
 
 <input type="file" id="photo" accept="image/*">
+<select id="duration">
+  <option value="2">2 detik</option>
+  <option value="4" selected>4 detik</option>
+  <option value="6">6 detik</option>
+</select>
 <button onclick="generateVideo()">Generate</button>
 
 <p id="status"></p>
@@ -20,6 +25,7 @@
 <script>
 async function generateVideo() {
   const file = document.querySelector("#photo").files[0];
+  const duration = document.getElementById("duration").value;
   if (!file) return alert("Pilih foto dulu!");
 
   const reader = new FileReader();
@@ -27,36 +33,54 @@ async function generateVideo() {
     const base64 = reader.result.split(",")[1];
     const statusEl = document.getElementById("status");
     const progressBar = document.getElementById("progressBar");
-
-    statusEl.innerText = "Mengunggah & membuat task...";
+    statusEl.innerText = "Membuat task...";
     progressBar.value = 0;
 
     try {
-      // Kirim ke serverless function
-      const res = await fetch("/api/runway", {
+      // 1. Buat task
+      const createRes = await fetch("/api/createTask", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          imageBase64: base64,
-          prompt: "smooth cinematic zoom",
-          duration: 4
-        })
+        body: JSON.stringify({ imageBase64: base64, prompt: "smooth cinematic zoom", duration })
       });
+      const createData = await createRes.json();
+      const taskId = createData.taskId;
+      if (!taskId) return statusEl.innerText = "❌ Gagal buat task";
 
-      const data = await res.json();
+      statusEl.innerText = "Sedang diproses...";
 
-      progressBar.value = data.progress;
-      statusEl.innerText = "Selesai ✅";
+      // 2. Polling progress sampai selesai
+      let videoUrl = null;
+      while (!videoUrl) {
+        const statusRes = await fetch("/api/getTaskStatus", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ taskId })
+        });
+        const status = await statusRes.json();
 
-      if (data.videoUrl) {
-        const video = document.getElementById("result");
-        video.src = data.videoUrl;
-        video.style.display = "block";
+        progressBar.value = status.progress || progressBar.value;
 
-        const download = document.getElementById("download");
-        download.href = data.videoUrl;
-        download.style.display = "inline-block";
+        if (status.status === "succeeded") videoUrl = status.output[0].url;
+        else if (status.status === "failed") {
+          statusEl.innerText = "❌ Task gagal";
+          return;
+        }
+
+        await new Promise(r => setTimeout(r, 3000)); // polling tiap 3 detik
       }
+
+      statusEl.innerText = "✅ Selesai!";
+      progressBar.value = 100;
+
+      const video = document.getElementById("result");
+      video.src = videoUrl;
+      video.style.display = "block";
+
+      const download = document.getElementById("download");
+      download.href = videoUrl;
+      download.style.display = "inline-block";
+
     } catch (err) {
       statusEl.innerText = "❌ Error: " + err;
     }
