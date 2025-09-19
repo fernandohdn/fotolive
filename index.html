@@ -1,52 +1,64 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>Runway Image to Video</title>
+<meta charset="UTF-8">
+<title>Runway Video Generator</title>
 </head>
 <body>
-  <h2>Generate Video dari Foto</h2>
-  
-  <input type="file" id="photo" accept="image/*" />
+  <h2>Upload Foto → Generate Video</h2>
+  <input type="file" id="photo" accept="image/*">
   <button onclick="generateVideo()">Generate</button>
 
   <p id="status"></p>
+  <progress id="progressBar" value="0" max="100" style="width:300px;"></progress>
+  <br/>
   <video id="result" controls style="max-width:400px; display:none;"></video>
+  <br/>
+  <a id="download" href="#" download="video.mp4" style="display:none;">⬇️ Download Video</a>
 
-  <script>
-    async function generateVideo() {
-      const file = document.querySelector("#photo").files[0];
-      if (!file) return alert("Pilih foto dulu!");
+<script>
+async function generateVideo() {
+  const file = document.querySelector("#photo").files[0];
+  if (!file) return alert("Pilih foto dulu!");
 
-      document.getElementById("status").innerText = "Mengunggah & memproses...";
-      const reader = new FileReader();
-      reader.onloadend = async () => {
-        const base64 = reader.result.split(",")[1];
+  const reader = new FileReader();
+  reader.onloadend = async () => {
+    const base64 = reader.result.split(",")[1];
+    const statusEl = document.getElementById("status");
+    const progressBar = document.getElementById("progressBar");
+    statusEl.innerText = "Mengunggah & membuat task...";
 
-        const res = await fetch("/api/generate", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            imageBase64: base64,
-            prompt: "smooth cinematic zoom",
-            duration: 4
-          })
-        });
+    try {
+      const res = await fetch("/api/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          imageBase64: base64,
+          prompt: "smooth cinematic zoom",
+          duration: 4
+        })
+      });
 
-        const data = await res.json();
-        console.log("Runway Response:", data);
+      // Update progress (sementara ini langsung 100% karena polling di server)
+      const data = await res.json();
+      progressBar.value = data.progress;
+      statusEl.innerText = "Selesai ✅";
 
-        if (data.output && data.output[0] && data.output[0].url) {
-          document.getElementById("status").innerText = "Selesai ✅";
-          const video = document.getElementById("result");
-          video.src = data.output[0].url;
-          video.style.display = "block";
-        } else {
-          document.getElementById("status").innerText = "Gagal generate 😢";
-        }
-      };
-      reader.readAsDataURL(file);
+      if (data.videoUrl) {
+        const video = document.getElementById("result");
+        video.src = data.videoUrl;
+        video.style.display = "block";
+
+        const download = document.getElementById("download");
+        download.href = data.videoUrl;
+        download.style.display = "inline-block";
+      }
+    } catch (err) {
+      statusEl.innerText = "❌ Error: " + err;
     }
-  </script>
+  };
+  reader.readAsDataURL(file);
+}
+</script>
 </body>
 </html>
