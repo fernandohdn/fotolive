@@ -28,9 +28,17 @@ async function generateVideo() {
   const duration = document.getElementById("duration").value;
   if (!file) return alert("Pilih foto dulu!");
 
-  const reader = new FileReader();
-  reader.onloadend = async () => {
-    const base64 = reader.result.split(",")[1];
+  // Compress image supaya lebih ringan (opsional)
+  const canvas = document.createElement("canvas");
+  const img = new Image();
+  img.onload = async () => {
+    const scale = Math.min(800 / img.width, 800 / img.height, 1);
+    canvas.width = img.width * scale;
+    canvas.height = img.height * scale;
+    const ctx = canvas.getContext("2d");
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    const base64 = canvas.toDataURL("image/png").split(",")[1];
+
     const statusEl = document.getElementById("status");
     const progressBar = document.getElementById("progressBar");
     statusEl.innerText = "Membuat task...";
@@ -49,16 +57,15 @@ async function generateVideo() {
 
       statusEl.innerText = "Sedang diproses...";
 
-      // 2. Polling progress sampai selesai
+      // 2. Polling status langsung ke Runway
       let videoUrl = null;
       while (!videoUrl) {
-        const statusRes = await fetch("/api/getTaskStatus", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ taskId })
+        const statusRes = await fetch(`https://api.dev.runwayml.com/v1/tasks/${taskId}`, {
+          headers: {
+            "Authorization": `Bearer ${process.env.RUNWAY_API_KEY}` // Bisa pakai serverless proxy jika ingin aman
+          }
         });
         const status = await statusRes.json();
-
         progressBar.value = status.progress || progressBar.value;
 
         if (status.status === "succeeded") videoUrl = status.output[0].url;
@@ -85,6 +92,9 @@ async function generateVideo() {
       statusEl.innerText = "❌ Error: " + err;
     }
   };
+
+  const reader = new FileReader();
+  reader.onloadend = () => img.src = reader.result;
   reader.readAsDataURL(file);
 }
 </script>
